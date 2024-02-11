@@ -12,15 +12,42 @@ void DUMMY_CODE(Targs &&... /* unused */) {}
 
 using namespace std;
 
-StreamReassembler::StreamReassembler(const size_t capacity) : _output(capacity), _capacity(capacity) {}
+StreamReassembler::StreamReassembler(const size_t capacity)
+    : _output(capacity), _capacity(capacity), _unassembled_buffer(capacity, {false, 0}) {}
 
 //! \details This function accepts a substring (aka a segment) of bytes,
 //! possibly out-of-order, from the logical stream, and assembles any newly
 //! contiguous substrings and writes them into the output stream in order.
 void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof) {
-    DUMMY_CODE(data, index, eof);
+    auto seq_end = index + data.length();
+    auto buffer_end = _first_unassembled_byte + _output.remaining_capacity();
+    auto end = std::min(seq_end, buffer_end);
+    _eof_byte = eof ? std::min(seq_end, _eof_byte) : _eof_byte;
+    auto pos = std::max(_first_unassembled_byte, index);
+    auto buffer_pos = _first_unassembled_byte < index ? index - _first_unassembled_byte : 0;
+    auto seq_pos = _first_unassembled_byte < index ? 0 : _first_unassembled_byte - index;
+    for (; pos < end; pos++) {
+        auto idx = (_buffer_start + buffer_pos) % _capacity;
+        _unassembled_buffer[idx].second = data[seq_pos];
+        _buffer_size += _unassembled_buffer[idx].first ^ true;
+        _unassembled_buffer[idx].first = true;
+        buffer_pos++;
+        seq_pos++;
+    }
+    std::string push_data;
+    while (_unassembled_buffer[_buffer_start].first != false) {
+        push_data.push_back(_unassembled_buffer[_buffer_start].second);
+        _unassembled_buffer[_buffer_start].first = false;
+        _buffer_start = (_buffer_start + 1) % _capacity;
+        _buffer_size--;
+        _first_unassembled_byte++;
+    }
+    _output.write(push_data);
+    if (_first_unassembled_byte == _eof_byte) {
+        _output.end_input();
+    }
 }
 
-size_t StreamReassembler::unassembled_bytes() const { return {}; }
+size_t StreamReassembler::unassembled_bytes() const { return _buffer_size; }
 
-bool StreamReassembler::empty() const { return {}; }
+bool StreamReassembler::empty() const { return _output.buffer_empty() && _buffer_size == 0; }

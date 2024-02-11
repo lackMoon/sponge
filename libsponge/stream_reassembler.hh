@@ -13,7 +13,18 @@ class StreamReassembler {
     // Your code here -- add private members as necessary.
 
     ByteStream _output;  //!< The reassembled in-order byte stream
-    size_t _capacity;    //!< The maximum number of bytes
+
+    size_t _capacity;  //!< The maximum number of bytes
+
+    size_t _first_unassembled_byte{0};
+
+    size_t _eof_byte{UINT32_MAX};
+
+    size_t _buffer_size{0};
+
+    size_t _buffer_start{0};
+
+    std::vector<std::pair<bool, char>> _unassembled_buffer;
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
