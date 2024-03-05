@@ -16,8 +16,6 @@ class StreamReassembler {
 
     size_t _capacity;  //!< The maximum number of bytes
 
-    size_t _first_unassembled_byte{0};
-
     size_t _eof_byte{UINT32_MAX};
 
     size_t _buffer_size{0};

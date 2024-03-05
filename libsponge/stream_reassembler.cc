@@ -20,17 +20,17 @@ StreamReassembler::StreamReassembler(const size_t capacity)
 //! contiguous substrings and writes them into the output stream in order.
 void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof) {
     auto seq_end = index + data.length();
-    auto buffer_end = _first_unassembled_byte + _output.remaining_capacity();
+    auto first_unassembled_byte = _output.bytes_written();
+    auto buffer_end = first_unassembled_byte + _output.remaining_capacity();
     auto end = std::min(seq_end, buffer_end);
     _eof_byte = eof ? std::min(seq_end, _eof_byte) : _eof_byte;
-    auto pos = std::max(_first_unassembled_byte, index);
-    auto buffer_pos = _first_unassembled_byte < index ? index - _first_unassembled_byte : 0;
-    auto seq_pos = _first_unassembled_byte < index ? 0 : _first_unassembled_byte - index;
+    auto pos = std::max(first_unassembled_byte, index);
+    auto buffer_pos = first_unassembled_byte < index ? index - first_unassembled_byte : 0;
+    auto seq_pos = first_unassembled_byte < index ? 0 : first_unassembled_byte - index;
     for (; pos < end; pos++) {
         auto idx = (_buffer_start + buffer_pos) % _capacity;
-        _unassembled_buffer[idx].second = data[seq_pos];
         _buffer_size += _unassembled_buffer[idx].first ^ true;
-        _unassembled_buffer[idx].first = true;
+        _unassembled_buffer[idx] = {true, data[seq_pos]};
         buffer_pos++;
         seq_pos++;
     }
@@ -40,10 +40,10 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
         _unassembled_buffer[_buffer_start].first = false;
         _buffer_start = (_buffer_start + 1) % _capacity;
         _buffer_size--;
-        _first_unassembled_byte++;
+        first_unassembled_byte++;
     }
     _output.write(push_data);
-    if (_first_unassembled_byte == _eof_byte) {
+    if (first_unassembled_byte == _eof_byte) {
         _output.end_input();
     }
 }
