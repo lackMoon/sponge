@@ -11,6 +11,30 @@
 
 //! \brief The "sender" part of a TCP implementation.
 
+class TCPTimer {
+  private:
+    size_t _time{0};
+
+    unsigned int _retransmission_timeout;
+
+    bool _state{false};
+
+  public:
+    TCPTimer(const uint16_t retx_timeout) : _retransmission_timeout{retx_timeout} {}
+
+    void turn(bool state, bool is_force = false) {
+        _state = state;
+        _time *= (!is_force & state);
+    }
+
+    void reset(const uint16_t initial_timeout = 0) {
+        _retransmission_timeout = initial_timeout == 0 ? _retransmission_timeout * 2 : initial_timeout;
+    }
+
+    void pass(const size_t ms_since_last_tick) { _time += _state * ms_since_last_tick; }
+
+    bool is_expired() { return _state && _time >= _retransmission_timeout; }
+};
 //! Accepts a ByteStream, divides it up into segments and sends the
 //! segments, keeps track of which segments are still in-flight,
 //! maintains the Retransmission Timer, and retransmits in-flight
@@ -23,6 +47,9 @@ class TCPSender {
     //! outbound queue of segments that the TCPSender wants sent
     std::queue<TCPSegment> _segments_out{};
 
+    //! outbound queue of segments that the TCPSender wants sent but not yet acknowledged
+    std::queue<std::pair<size_t, TCPSegment>> _segments_unack{};
+
     //! retransmission timer for the connection
     unsigned int _initial_retransmission_timeout;
 
@@ -31,6 +58,16 @@ class TCPSender {
 
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
+
+    size_t _send_base{0};
+
+    size_t _window_size{1};
+
+    unsigned int _consecutive_retransmissions{0};
+
+    TCPTimer _timer;
+
+    bool is_connected{true};
 
   public:
     //! Initialize a TCPSender
