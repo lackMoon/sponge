@@ -36,7 +36,7 @@ void TCPSender::fill_window() {
         auto payload_size = min(min(size - is_syn, _stream.buffer_size()), TCPConfig::MAX_PAYLOAD_SIZE);
         seg.payload() = _stream.read(payload_size);
         auto &header = seg.header();
-        header.seqno = wrap(_next_seqno, _isn);
+        header.seqno = next_seqno();
         header.syn = is_syn;
         header.fin = payload_size < size && _stream.eof();
         is_connected = !header.fin;
@@ -70,6 +70,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         _consecutive_retransmissions = 0;
     }
     _window_size = window_size;
+    fill_window();
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
@@ -88,4 +89,8 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
 
 unsigned int TCPSender::consecutive_retransmissions() const { return _consecutive_retransmissions; }
 
-void TCPSender::send_empty_segment() { _segments_out.push({}); }
+void TCPSender::send_empty_segment() {
+    TCPSegment seg;
+    seg.header().seqno = next_seqno();
+    _segments_out.push(seg);
+}

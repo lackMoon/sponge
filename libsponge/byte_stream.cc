@@ -31,6 +31,7 @@ string ByteStream::peek_output(const size_t len) const {
     std::string ret_str;
     auto peek_bytes = min(size_, len);
     auto index = head_;
+    ret_str.reserve(peek_bytes);
     for (size_t i = 0; i < peek_bytes; i++) {
         ret_str.push_back(conatiner_.at(index));
         index = (index + 1) % capacity_;
@@ -50,12 +51,9 @@ void ByteStream::pop_output(const size_t len) {
 //! \param[in] len bytes will be popped and returned
 //! \returns a string
 std::string ByteStream::read(const size_t len) {
-    std::string ret_str;
-    auto read_bytes = std::min(size_, len);
-    for (size_t i = 0; i < read_bytes; i++) {
-        ret_str.push_back(conatiner_.at(head_));
-        head_ = (head_ + 1) % capacity_;
-    }
+    auto ret_str = std::move(peek_output(len));
+    auto read_bytes = ret_str.length();
+    head_ = (head_ + read_bytes) % capacity_;
     size_ -= read_bytes;
     reads_ += read_bytes;
     return ret_str;
