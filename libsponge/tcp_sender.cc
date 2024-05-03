@@ -26,7 +26,7 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
 uint64_t TCPSender::bytes_in_flight() const { return _next_seqno - _send_base; }
 
 void TCPSender::fill_window() {
-    while (is_connected) {
+    while (!is_finshed) {
         TCPSegment seg;
         bool is_syn = _next_seqno == 0;
         auto size = (_window_size + !_window_size) - bytes_in_flight();
@@ -38,13 +38,12 @@ void TCPSender::fill_window() {
         auto &header = seg.header();
         header.seqno = next_seqno();
         header.syn = is_syn;
-        header.fin = payload_size < size && _stream.eof();
-        is_connected = !header.fin;
+        is_finshed = header.fin = payload_size < size && _stream.eof();
         if (seg.length_in_sequence_space() == 0) {  // empty sequence
             return;
         }
-        _segments_out.push(seg);
         _segments_unack.push({_next_seqno, seg});
+        _segments_out.push(seg);
         _timer.turn(true);
         _next_seqno += seg.length_in_sequence_space();
     }
@@ -92,5 +91,5 @@ unsigned int TCPSender::consecutive_retransmissions() const { return _consecutiv
 void TCPSender::send_empty_segment() {
     TCPSegment seg;
     seg.header().seqno = next_seqno();
-    _segments_out.push(seg);
+    _segments_out.emplace(std::move(seg));
 }

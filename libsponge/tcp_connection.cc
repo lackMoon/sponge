@@ -18,20 +18,18 @@ void TCPConnection::close() {
 }
 
 void TCPConnection::flush() {
-    if (_active) {
-        auto &sender_queue = _sender.segments_out();
-        while (!sender_queue.empty()) {
-            auto &seg = sender_queue.front();
-            auto ackno = _receiver.ackno();
-            if (ackno.has_value()) {
-                auto &header = seg.header();
-                header.ack = true;
-                header.ackno = ackno.value();
-                header.win = min(_receiver.window_size(), static_cast<size_t>(numeric_limits<uint16_t>::max()));
-            }
-            _segments_out.push(seg);
-            sender_queue.pop();
+    auto &sender_queue = _sender.segments_out();
+    while (!sender_queue.empty()) {
+        auto &seg = sender_queue.front();
+        auto ackno = _receiver.ackno();
+        if (ackno.has_value()) {
+            auto &header = seg.header();
+            header.ack = true;
+            header.ackno = ackno.value();
+            header.win = min(_receiver.window_size(), static_cast<size_t>(numeric_limits<uint16_t>::max()));
         }
+        _segments_out.push(seg);
+        sender_queue.pop();
     }
 }
 

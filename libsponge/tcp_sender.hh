@@ -67,7 +67,7 @@ class TCPSender {
 
     TCPTimer _timer;
 
-    bool is_connected{true};
+    bool is_finshed{false};
 
   public:
     //! Initialize a TCPSender

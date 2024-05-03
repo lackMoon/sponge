@@ -1,6 +1,7 @@
 #ifndef SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 #define SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 
+#include "arp_message.hh"
 #include "ethernet_frame.hh"
 #include "tcp_over_ip.hh"
 #include "tun.hh"
@@ -29,8 +30,24 @@
 //! the network interface passes it up the stack. If it's an ARP
 //! request or reply, the network interface processes the frame
 //! and learns or replies as necessary.
+struct ARPItem {
+    EthernetAddress _ethernet_address{ETHERNET_BROADCAST};
+
+    std::queue<InternetDatagram> _pending_dgrams{};
+
+    size_t _entry_time{SIZE_MAX};
+
+    size_t _last_request_time{SIZE_MAX};
+};
+
 class NetworkInterface {
+    static constexpr size_t EXPIRED_TIME = 30000;
+    static constexpr size_t CACHE_TIME = 5000;
+
   private:
+    bool is_expired(uint32_t ip_address);
+
+    void send_frame(uint16_t type, uint32_t ip_address);
     //! Ethernet (known as hardware, network-access-layer, or link-layer) address of the interface
     EthernetAddress _ethernet_address;
 
@@ -39,6 +56,10 @@ class NetworkInterface {
 
     //! outbound queue of Ethernet frames that the NetworkInterface wants sent
     std::queue<EthernetFrame> _frames_out{};
+
+    std::unordered_map<uint32_t, ARPItem> _arp_table{};
+
+    size_t _time{0};
 
   public:
     //! \brief Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer) addresses
