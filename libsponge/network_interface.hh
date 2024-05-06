@@ -61,6 +61,8 @@ class NetworkInterface {
 
     size_t _time{0};
 
+    short _expired_hits{5};
+
   public:
     //! \brief Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer) addresses
     NetworkInterface(const EthernetAddress &ethernet_address, const Address &ip_address);

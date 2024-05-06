@@ -25,7 +25,9 @@ NetworkInterface::NetworkInterface(const EthernetAddress &ethernet_address, cons
 
 bool NetworkInterface::is_expired(uint32_t ip_address) {
     auto &item = _arp_table.at(ip_address);
-    return item._entry_time <= _time && _time - item._entry_time > EXPIRED_TIME;
+    bool ret = item._entry_time <= _time && _time - item._entry_time > EXPIRED_TIME;
+    _expired_hits -= ret;
+    return ret;
 }
 
 void NetworkInterface::send_frame(uint16_t type, uint32_t ip_address) {
@@ -84,12 +86,12 @@ void NetworkInterface::send_datagram(const InternetDatagram &dgram, const Addres
 //! \param[in] frame the incoming Ethernet frame
 optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &frame) {
     auto &header = frame.header();
-    InternetDatagram dgram;
-    auto &dst = frame.header().dst;
+    auto &dst = header.dst;
     if (!(dst == ETHERNET_BROADCAST || dst == _ethernet_address)) {
         return std::nullopt;
     }
     if (header.type == EthernetHeader::TYPE_IPv4) {
+        InternetDatagram dgram;
         if (ParseResult::NoError == dgram.parse(frame.payload())) {
             return dgram;
         }
@@ -118,4 +120,14 @@ optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &fra
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
-void NetworkInterface::tick(const size_t ms_since_last_tick) { _time += ms_since_last_tick; }
+void NetworkInterface::tick(const size_t ms_since_last_tick) {
+    _time += ms_since_last_tick;
+    if (_expired_hits <= 0) {
+        for (auto &item : _arp_table) {
+            if (is_expired(item.first)) {
+                _arp_table.erase(item.first);
+            }
+        }
+        _expired_hits = 5;
+    }
+}

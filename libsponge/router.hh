@@ -40,14 +40,68 @@ class AsyncNetworkInterface : public NetworkInterface {
 
 //! \brief A router that has multiple network interfaces and
 //! performs longest-prefix-match routing between them.
+struct RouteInfo {
+    uint32_t _key{0};
+
+    uint8_t _key_prefix{0};
+
+    std::optional<Address> _next_hop;
+
+    size_t _interface_num;
+
+    struct RouteInfo *_next;
+};
+
+class RouterNode {
+  public:
+    static constexpr uint8_t INDEX_PREFIX_LENGTH = 4;
+
+    RouterNode() : _children(pow(2, INDEX_PREFIX_LENGTH)) {}
+
+    RouterNode(const RouterNode &node) : _children(pow(2, INDEX_PREFIX_LENGTH)) {
+        _value = node._value;
+        _children = node._children;
+    }
+
+    ~RouterNode() {
+        _value = nullptr;
+        _children.clear();
+    }
+
+    RouterNode &operator=(RouterNode &node) {
+        _value = node._value;
+        _children = node._children;
+        return *this;
+    }
+
+    RouteInfo *_value{};
+
+    std::vector<std::shared_ptr<RouterNode>> _children;
+};
+
 class Router {
+    static constexpr uint8_t ADDRESS_SIZE = 32;
     //! The router's collection of network interfaces
     std::vector<AsyncNetworkInterface> _interfaces{};
+
+    std::shared_ptr<RouterNode> _root{};
 
     //! Send a single datagram from the appropriate outbound interface to the next hop,
     //! as specified by the route with the longest prefix_length that matches the
     //! datagram's destination address.
     void route_one_datagram(InternetDatagram &dgram);
+
+    bool is_match(uint32_t lval, uint32_t rval, uint8_t match_prefix);
+
+    void add_router_node(std::shared_ptr<RouterNode> &curr_node,
+                         const uint32_t route_prefix,
+                         const uint8_t prefix_length,
+                         const std::optional<Address> &next_hop,
+                         const size_t interface_num);
+
+    bool search_route_info(std::shared_ptr<RouterNode> &curr_node,
+                           const uint32_t match_address,
+                           InternetDatagram &dgram);
 
   public:
     //! Add an interface to the router
