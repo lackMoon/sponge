@@ -19,7 +19,7 @@ template <typename... Targs>
 void DUMMY_CODE(Targs &&... /* unused */) {}
 
 bool Router::is_match(uint32_t lval, uint32_t rval, uint8_t match_prefix) {
-    return match_prefix == 0 ? true : !((lval ^ rval) >> (ADDRESS_SIZE - match_prefix));
+    return !(match_prefix && ((lval ^ rval) >> (ADDRESS_SIZE - match_prefix)));
 }
 
 void Router::add_router_node(std::shared_ptr<RouterNode> &curr_node,
@@ -49,10 +49,8 @@ bool Router::search_route_info(std::shared_ptr<RouterNode> &curr_node,
     auto index_bits = RouterNode::INDEX_PREFIX_LENGTH;
     auto index = match_address >> (ADDRESS_SIZE - index_bits);
     auto child_node = curr_node->_children.at(index);
-    if (child_node != nullptr) {
-        if (search_route_info(child_node, match_address << index_bits, dgram)) {
-            return true;
-        }
+    if (child_node != nullptr && search_route_info(child_node, match_address << index_bits, dgram)) {
+        return true;
     }
     auto route_info = curr_node->_value;
     RouteInfo *target_info = nullptr;
